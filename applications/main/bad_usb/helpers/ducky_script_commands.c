@@ -208,6 +208,35 @@ static int32_t ducky_fnc_globe(BadUsbScript* bad_usb, const char* line, int32_t 
     return 0;
 }
 
+static int32_t ducky_fnc_repeat_begin(BadUsbScript* bad_usb, const char* line, int32_t param) {
+    UNUSED(param);
+
+    if(bad_usb->in_loop) {
+        return ducky_error(bad_usb, "Nested REPEAT_BEGIN not supported");
+    }
+
+    line = &line[ducky_get_command_len(line) + 1];
+    uint32_t count = 0;
+    if(!ducky_get_number(line, &count)) {
+        return ducky_error(bad_usb, "Invalid number %s", line);
+    }
+
+    bad_usb->loop_file_offset = bad_usb->next_line_offset;
+    bad_usb->loop_remain = (count == 0) ? UINT32_MAX : (count - 1);
+    bad_usb->in_loop = true;
+    return SCRIPT_STATE_NEXT_LINE;
+}
+
+static int32_t ducky_fnc_repeat_end(BadUsbScript* bad_usb, const char* line, int32_t param) {
+    UNUSED(param);
+    UNUSED(line);
+
+    if(!bad_usb->in_loop) {
+        return ducky_error(bad_usb, "REPEAT_END without REPEAT_BEGIN");
+    }
+    return SCRIPT_STATE_LOOP_END;
+}
+
 static int32_t ducky_fnc_waitforbutton(BadUsbScript* bad_usb, const char* line, int32_t param) {
     UNUSED(param);
     UNUSED(bad_usb);
@@ -267,6 +296,8 @@ static const DuckyCmd ducky_commands[] = {
     {"STRING_DELAY", ducky_fnc_strdelay, -1},
     {"DEFAULT_STRING_DELAY", ducky_fnc_defstrdelay, -1},
     {"DEFAULTSTRINGDELAY", ducky_fnc_defstrdelay, -1},
+    {"REPEAT_BEGIN", ducky_fnc_repeat_begin, -1},
+    {"REPEAT_END", ducky_fnc_repeat_end, -1},
     {"REPEAT", ducky_fnc_repeat, -1},
     {"SYSRQ", ducky_fnc_sysrq, -1},
     {"ALTCHAR", ducky_fnc_altchar, -1},

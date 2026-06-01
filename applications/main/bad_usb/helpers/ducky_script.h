@@ -27,6 +27,7 @@ typedef struct {
     BadUsbWorkerState state;
     size_t line_cur;
     size_t line_nb;
+    bool has_infinite_loop;
     uint32_t delay_remain;
     size_t error_line;
     char error[64];

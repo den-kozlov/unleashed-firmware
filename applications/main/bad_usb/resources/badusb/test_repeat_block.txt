@@ -1,0 +1,47 @@
+REM =====================================================
+REM  test_repeat_block.txt
+REM  Demo of REPEAT_BEGIN / REPEAT_END
+REM
+REM  Before running: open any text editor and place
+REM  the cursor inside it.
+REM =====================================================
+
+REM --- Test 1: block repeats 3 times ---
+REM Expected output (each on a new line):
+REM   Hello block!
+REM   Hello block!
+REM   Hello block!
+
+REPEAT_BEGIN 3
+STRING Hello block!
+ENTER
+DELAY 300
+REPEAT_END
+
+REM --- separator ---
+DELAY 500
+STRING ---
+ENTER
+DELAY 300
+
+REM --- Test 2: block with multiple commands, 2 iterations ---
+REM Each iteration: print a line, print an indented line, print another.
+REM Expected output (repeated twice):
+REM   >> start
+REM       indented line
+REM   >> end
+
+REPEAT_BEGIN 2
+STRING >> start
+ENTER
+STRING     indented line
+ENTER
+STRING >> end
+ENTER
+DELAY 500
+REPEAT_END
+
+REM --- final ---
+DELAY 300
+STRING === done ===
+ENTER

@@ -15,6 +15,7 @@ extern "C" {
 #define SCRIPT_STATE_CMD_UNKNOWN  (-4)
 #define SCRIPT_STATE_STRING_START (-5)
 #define SCRIPT_STATE_WAIT_FOR_BTN (-6)
+#define SCRIPT_STATE_LOOP_END     (-7)
 
 #define FILE_BUFFER_LEN 16
 
@@ -45,6 +46,11 @@ struct BadUsbScript {
     FuriString* line_prev;
     uint32_t repeat_cnt;
     uint8_t key_hold_nb;
+
+    uint64_t loop_file_offset;
+    uint32_t loop_remain;
+    bool in_loop;
+    uint64_t next_line_offset;
 
     FuriString* string_print;
     size_t string_print_pos;

@@ -289,6 +289,58 @@ static void bad_usb_hid_state_callback(bool state, void* context) {
     }
 }
 
+#define PRELOAD_LINE_BUF 64
+
+static void ducky_script_calc_effective_lines(BadUsbScript* bad_usb, File* script_file) {
+    storage_file_seek(script_file, 0, true);
+
+    bad_usb->st.line_nb = 0;
+    bad_usb->st.has_infinite_loop = false;
+
+    char buf[PRELOAD_LINE_BUF];
+    size_t pos = 0;
+    bool in_loop = false;
+    size_t body_count = 0;
+    uint32_t loop_n = 0;
+    uint8_t ch;
+
+    while(true) {
+        bool got = (storage_file_read(script_file, &ch, 1) == 1);
+        bool flush = !got || ch == '\n';
+
+        if(flush) {
+            if(pos > 0 && buf[pos - 1] == '\r') pos--;
+            buf[pos] = '\0';
+
+            if(pos > 0) {
+                if(strncmp(buf, "REPEAT_BEGIN ", 13) == 0) {
+                    uint32_t n = 0;
+                    ducky_get_number(&buf[13], &n);
+                    in_loop = true;
+                    body_count = 0;
+                    loop_n = n;
+                    if(n == 0) bad_usb->st.has_infinite_loop = true;
+                    bad_usb->st.line_nb++;
+                } else if(strncmp(buf, "REPEAT_END", 10) == 0 && in_loop) {
+                    if(loop_n > 0) bad_usb->st.line_nb += (loop_n - 1) * (body_count + 1);
+                    in_loop = false;
+                    bad_usb->st.line_nb++;
+                } else {
+                    bad_usb->st.line_nb++;
+                    if(in_loop) body_count++;
+                }
+            }
+            pos = 0;
+        } else {
+            if(pos < PRELOAD_LINE_BUF - 1) buf[pos++] = (char)ch;
+        }
+
+        if(!got) break;
+    }
+
+    storage_file_seek(script_file, 0, true);
+}
+
 static bool ducky_script_preload(BadUsbScript* bad_usb, File* script_file) {
     uint8_t ret = 0;
     uint32_t line_len = 0;
@@ -342,7 +394,7 @@ static bool ducky_script_preload(BadUsbScript* bad_usb, File* script_file) {
     bad_usb->hid_inst = bad_usb->hid->init(bad_usb->hid_cfg);
     bad_usb->hid->set_state_callback(bad_usb->hid_inst, bad_usb_hid_state_callback, bad_usb);
 
-    storage_file_seek(script_file, 0, true);
+    ducky_script_calc_effective_lines(bad_usb, script_file);
     furi_string_reset(bad_usb->line);
 
     return true;
@@ -392,6 +444,8 @@ static int32_t ducky_script_execute_next(BadUsbScript* bad_usb, File* script_fil
                 bad_usb->buf_len = bad_usb->buf_len + bad_usb->buf_start - (i + 1);
                 bad_usb->buf_start = i + 1;
                 furi_string_trim(bad_usb->line);
+                bad_usb->next_line_offset =
+                    storage_file_tell(script_file) - bad_usb->buf_len;
                 delay_val = ducky_parse_line(bad_usb, bad_usb->line);
                 if(delay_val == SCRIPT_STATE_NEXT_LINE) { // Empty line
                     return 0;
@@ -399,6 +453,17 @@ static int32_t ducky_script_execute_next(BadUsbScript* bad_usb, File* script_fil
                     return delay_val;
                 } else if(delay_val == SCRIPT_STATE_WAIT_FOR_BTN) { // wait for button
                     return delay_val;
+                } else if(delay_val == SCRIPT_STATE_LOOP_END) {
+                    if(bad_usb->loop_remain == UINT32_MAX || bad_usb->loop_remain > 0) {
+                        if(bad_usb->loop_remain != UINT32_MAX) bad_usb->loop_remain--;
+                        storage_file_seek(script_file, bad_usb->loop_file_offset, true);
+                        bad_usb->buf_start = 0;
+                        bad_usb->buf_len = 0;
+                        bad_usb->file_end = false;
+                    } else {
+                        bad_usb->in_loop = false;
+                    }
+                    return 0;
                 } else if(delay_val < 0) {
                     bad_usb->st.error_line = bad_usb->st.line_cur;
                     FURI_LOG_E(WORKER_TAG, "Unknown command at line %zu", bad_usb->st.line_cur);
@@ -501,6 +566,10 @@ static int32_t bad_usb_worker(void* context) {
                 bad_usb->repeat_cnt = 0;
                 bad_usb->key_hold_nb = 0;
                 bad_usb->file_end = false;
+                bad_usb->in_loop = false;
+                bad_usb->loop_remain = 0;
+                bad_usb->loop_file_offset = 0;
+                bad_usb->next_line_offset = 0;
                 storage_file_seek(script_file, 0, true);
                 worker_state = BadUsbStateRunning;
                 bad_usb->st.elapsed = 0;
@@ -526,6 +595,10 @@ static int32_t bad_usb_worker(void* context) {
                 bad_usb->defstringdelay = 0;
                 bad_usb->repeat_cnt = 0;
                 bad_usb->file_end = false;
+                bad_usb->in_loop = false;
+                bad_usb->loop_remain = 0;
+                bad_usb->loop_file_offset = 0;
+                bad_usb->next_line_offset = 0;
                 storage_file_seek(script_file, 0, true);
                 // extra time for PC to recognize Flipper as keyboard
                 flags = furi_thread_flags_wait(

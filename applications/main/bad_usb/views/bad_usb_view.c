@@ -103,27 +103,42 @@ static void bad_usb_draw_callback(Canvas* canvas, void* _model) {
         canvas_draw_str_aligned(canvas, 127, 33, AlignRight, AlignBottom, "ERROR:");
     } else if(state == BadUsbStateIdle) {
         canvas_draw_icon(canvas, 4, 26, &I_Smile_18x18);
-        furi_string_printf(disp_str, "0/%zu", model->state.line_nb);
-        canvas_draw_str_aligned(
-            canvas, 124, 47, AlignRight, AlignBottom, furi_string_get_cstr(disp_str));
-        canvas_set_font(canvas, FontBigNumbers);
-        canvas_draw_str_aligned(canvas, 112, 37, AlignRight, AlignBottom, "0");
-        canvas_draw_icon(canvas, 115, 23, &I_Percent_10x14);
+        if(model->state.has_infinite_loop) {
+            canvas_draw_str_aligned(canvas, 124, 47, AlignRight, AlignBottom, "line 0");
+            canvas_set_font(canvas, FontPrimary);
+            canvas_draw_str_aligned(canvas, 112, 34, AlignRight, AlignBottom, "LOOP");
+        } else {
+            furi_string_printf(disp_str, "0/%zu", model->state.line_nb);
+            canvas_draw_str_aligned(
+                canvas, 124, 47, AlignRight, AlignBottom, furi_string_get_cstr(disp_str));
+            canvas_set_font(canvas, FontBigNumbers);
+            canvas_draw_str_aligned(canvas, 112, 37, AlignRight, AlignBottom, "0");
+            canvas_draw_icon(canvas, 115, 23, &I_Percent_10x14);
+        }
     } else if(state == BadUsbStateRunning) {
         if(model->anim_frame == 0) {
             canvas_draw_icon(canvas, 4, 23, &I_EviSmile1_18x21);
         } else {
             canvas_draw_icon(canvas, 4, 23, &I_EviSmile2_18x21);
         }
-        furi_string_printf(disp_str, "%zu/%zu", model->state.line_cur, model->state.line_nb);
-        canvas_draw_str_aligned(
-            canvas, 124, 47, AlignRight, AlignBottom, furi_string_get_cstr(disp_str));
-        canvas_set_font(canvas, FontBigNumbers);
-        furi_string_printf(
-            disp_str, "%zu", ((model->state.line_cur - 1) * 100) / model->state.line_nb);
-        canvas_draw_str_aligned(
-            canvas, 112, 37, AlignRight, AlignBottom, furi_string_get_cstr(disp_str));
-        canvas_draw_icon(canvas, 115, 23, &I_Percent_10x14);
+        if(model->state.has_infinite_loop) {
+            furi_string_printf(disp_str, "line %zu", model->state.line_cur);
+            canvas_draw_str_aligned(
+                canvas, 124, 47, AlignRight, AlignBottom, furi_string_get_cstr(disp_str));
+            canvas_set_font(canvas, FontPrimary);
+            canvas_draw_str_aligned(canvas, 112, 34, AlignRight, AlignBottom, "LOOP");
+        } else {
+            furi_string_printf(
+                disp_str, "%zu/%zu", model->state.line_cur, model->state.line_nb);
+            canvas_draw_str_aligned(
+                canvas, 124, 47, AlignRight, AlignBottom, furi_string_get_cstr(disp_str));
+            canvas_set_font(canvas, FontBigNumbers);
+            furi_string_printf(
+                disp_str, "%zu", ((model->state.line_cur - 1) * 100) / model->state.line_nb);
+            canvas_draw_str_aligned(
+                canvas, 112, 37, AlignRight, AlignBottom, furi_string_get_cstr(disp_str));
+            canvas_draw_icon(canvas, 115, 23, &I_Percent_10x14);
+        }
     } else if(state == BadUsbStateDone) {
         canvas_draw_icon(canvas, 4, 23, &I_EviSmile1_18x21);
         furi_string_printf(disp_str, "%zu/%zu", model->state.line_nb, model->state.line_nb);
@@ -144,15 +159,24 @@ static void bad_usb_draw_callback(Canvas* canvas, void* _model) {
             canvas_draw_str_aligned(
                 canvas, 4, 61, AlignLeft, AlignBottom, furi_string_get_cstr(disp_str));
         }
-        furi_string_printf(disp_str, "%zu/%zu", model->state.line_cur, model->state.line_nb);
-        canvas_draw_str_aligned(
-            canvas, 124, 47, AlignRight, AlignBottom, furi_string_get_cstr(disp_str));
-        canvas_set_font(canvas, FontBigNumbers);
-        furi_string_printf(
-            disp_str, "%zu", ((model->state.line_cur - 1) * 100) / model->state.line_nb);
-        canvas_draw_str_aligned(
-            canvas, 112, 37, AlignRight, AlignBottom, furi_string_get_cstr(disp_str));
-        canvas_draw_icon(canvas, 115, 23, &I_Percent_10x14);
+        if(model->state.has_infinite_loop) {
+            furi_string_printf(disp_str, "line %zu", model->state.line_cur);
+            canvas_draw_str_aligned(
+                canvas, 124, 47, AlignRight, AlignBottom, furi_string_get_cstr(disp_str));
+            canvas_set_font(canvas, FontPrimary);
+            canvas_draw_str_aligned(canvas, 112, 34, AlignRight, AlignBottom, "LOOP");
+        } else {
+            furi_string_printf(
+                disp_str, "%zu/%zu", model->state.line_cur, model->state.line_nb);
+            canvas_draw_str_aligned(
+                canvas, 124, 47, AlignRight, AlignBottom, furi_string_get_cstr(disp_str));
+            canvas_set_font(canvas, FontBigNumbers);
+            furi_string_printf(
+                disp_str, "%zu", ((model->state.line_cur - 1) * 100) / model->state.line_nb);
+            canvas_draw_str_aligned(
+                canvas, 112, 37, AlignRight, AlignBottom, furi_string_get_cstr(disp_str));
+            canvas_draw_icon(canvas, 115, 23, &I_Percent_10x14);
+        }
     } else if((state == BadUsbStatePaused) || (state == BadUsbStateWaitForBtn)) {
         if(model->anim_frame == 0) {
             canvas_draw_icon(canvas, 4, 23, &I_EviWaiting1_18x21);
@@ -162,15 +186,24 @@ static void bad_usb_draw_callback(Canvas* canvas, void* _model) {
         if(state != BadUsbStateWaitForBtn) {
             canvas_draw_str_aligned(canvas, 4, 61, AlignLeft, AlignBottom, "Paused");
         }
-        furi_string_printf(disp_str, "%zu/%zu", model->state.line_cur, model->state.line_nb);
-        canvas_draw_str_aligned(
-            canvas, 124, 47, AlignRight, AlignBottom, furi_string_get_cstr(disp_str));
-        canvas_set_font(canvas, FontBigNumbers);
-        furi_string_printf(
-            disp_str, "%zu", ((model->state.line_cur - 1) * 100) / model->state.line_nb);
-        canvas_draw_str_aligned(
-            canvas, 112, 37, AlignRight, AlignBottom, furi_string_get_cstr(disp_str));
-        canvas_draw_icon(canvas, 115, 23, &I_Percent_10x14);
+        if(model->state.has_infinite_loop) {
+            furi_string_printf(disp_str, "line %zu", model->state.line_cur);
+            canvas_draw_str_aligned(
+                canvas, 124, 47, AlignRight, AlignBottom, furi_string_get_cstr(disp_str));
+            canvas_set_font(canvas, FontPrimary);
+            canvas_draw_str_aligned(canvas, 112, 34, AlignRight, AlignBottom, "LOOP");
+        } else {
+            furi_string_printf(
+                disp_str, "%zu/%zu", model->state.line_cur, model->state.line_nb);
+            canvas_draw_str_aligned(
+                canvas, 124, 47, AlignRight, AlignBottom, furi_string_get_cstr(disp_str));
+            canvas_set_font(canvas, FontBigNumbers);
+            furi_string_printf(
+                disp_str, "%zu", ((model->state.line_cur - 1) * 100) / model->state.line_nb);
+            canvas_draw_str_aligned(
+                canvas, 112, 37, AlignRight, AlignBottom, furi_string_get_cstr(disp_str));
+            canvas_draw_icon(canvas, 115, 23, &I_Percent_10x14);
+        }
     } else {
         canvas_draw_icon(canvas, 4, 26, &I_Clock_18x18);
     }
